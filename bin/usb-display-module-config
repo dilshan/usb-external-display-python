@@ -1,0 +1,236 @@
+#!/usr/bin/env python
+
+# *****************************************************************************
+#  Copyright 2019 Dilshan R Jayakody. [jayakody2000lk@gmail.com]
+#
+#  Permission is hereby granted, free of charge, to any person obtaining a
+#  copy of this software and associated documentation files (the "Software"),
+#  to deal in the Software without restriction, including without limitation
+#  the rights to use, copy, modify, merge, publish, distribute, sublicense,
+#  and/or sell copies of the Software, and to permit persons to whom the
+#  Software is furnished to do so, subject to the following conditions:
+#
+#  The above copyright notice and this permission notice shall be included
+#  in all copies or substantial portions of the Software.
+#
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+#  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+#  DEALINGS IN THE SOFTWARE.
+# *****************************************************************************
+
+import external_counter.external_counter as counter_api
+import time
+import datetime
+import sys
+
+DEFAULT_COM_PORT = "/dev/ttyACM0"
+
+
+def get_numeric_input(prompt, default=0):
+    temp_input = input(prompt)
+    try:
+        return int(temp_input)
+    except ValueError:
+        return default
+
+
+def show_main_menu():
+    while True:
+        print("1) Set communication port")
+        print("2) Test display unit")
+        print("3) Change time")
+        print("4) Change date")
+        print("5) Sync system time")
+        print("6) Set idle mode")
+        print("7) Set idle message")
+        print("8) Check system speaker")
+        print("9) Exit")
+        print()
+
+        menu_option = get_numeric_input("Selected option [1-9]: ")
+        if menu_option > 0:
+            return menu_option
+        else:
+            print()
+
+
+def config_port():
+    port_name = input("Communication port [" + user_com_port + "]: ").strip()
+    if port_name != "":
+        return port_name
+    else:
+        return user_com_port
+
+
+def open_display_module():
+    device_handle = counter_api.ExternalCounter(user_com_port)
+    if not device_handle.is_open():
+        print("Unable to open communication channel with display unit!")
+        return None
+    return device_handle
+
+
+def test_display_unit():
+    device_handle = open_display_module()
+    if device_handle is not None:
+        print()
+        for display_symbol in range(0, 10):
+            display_msg = str(display_symbol) * 10
+            device_handle.show_message(display_msg)
+            print('.', end=' ')
+            time.sleep(0.5)
+        device_handle.clear_display()
+    device_handle.close_device()
+
+
+def sync_system_time():
+    device_handle = open_display_module()
+    if device_handle is not None:
+        print("Synchronizing system time with host time...")
+        device_handle.set_time(datetime.datetime.now())
+        print("Synchronization complete")
+    device_handle.close_device()
+
+
+def change_time():
+    hour = get_numeric_input("Hour [0-23]: ", datetime.datetime.now().hour)
+    if not (0 <= hour <= 23):
+        print("Hour must be in 24-hour format and should between 0 to 23")
+        return
+
+    minute = get_numeric_input("Minute [0-59]: ", datetime.datetime.now().minute)
+    if not (0 <= minute <= 59):
+        print("Minute must be between 0 to 59")
+        return
+
+    second = get_numeric_input("Second [0-59]: ", datetime.datetime.now().second)
+    if not (0 <= second <= 59):
+        print("Second must be between 0 to 59")
+        return
+
+    device_handle = open_display_module()
+    if device_handle is not None:
+        device_handle.set_time(datetime.datetime(2000, 1, 1, hour, minute, second))
+        print("System time updated")
+    device_handle.close_device()
+
+
+def change_date():
+    year = get_numeric_input("Year [2000-2099]: ", datetime.datetime.now().year)
+    if not (2000 <= year <= 2099):
+        print("Year must between 2000 to 2099")
+        return
+
+    month = get_numeric_input("Month [1-12]: ", datetime.datetime.now().month)
+    if not (1 <= month <= 12):
+        print("Month must be between 1 to 12")
+        return
+
+    day = get_numeric_input("Day [1-31]: ", datetime.datetime.now().day)
+    if not (1 <= day <= 31):
+        print("Day must be between 1 to 31")
+        return
+
+    device_handle = open_display_module()
+    if device_handle is not None:
+        device_handle.set_date(datetime.datetime(year, month, day))
+        print("System date updated")
+    device_handle.close_device()
+
+
+def set_idle_message():
+    is_idle_msg_updated = False
+    idle_num = get_numeric_input("Enter number to display in idle mode: ")
+    idle_msg = str(idle_num)
+    if len(idle_msg) > 10:
+        print("The maximum allowed length for the number is 10 digits.")
+        print("Specified message is truncated to 10 digits!")
+        idle_msg = idle_msg[:10]
+
+    device_handle = open_display_module()
+    if device_handle is not None:
+        device_handle.set_idle_message(idle_msg)
+        is_idle_msg_updated = True
+    device_handle.close_device()
+
+    return is_idle_msg_updated
+
+
+def set_idle_mode():
+    is_idle_mode_updated = False
+
+    print("1) Shutdown display")
+    print("2) Show system time")
+    print("3) Show system date")
+    print("4) Show custom message")
+
+    menu_option = get_numeric_input("Selected option [1-9]: ")
+    if (menu_option == 0) or (menu_option > 4) or (menu_option < 0):
+        return
+
+    device_handle = open_display_module()
+    if device_handle is not None:
+        device_handle.set_idle_mode(menu_option - 1)
+        is_idle_mode_updated = True
+    device_handle.close_device()
+
+    if is_idle_mode_updated:
+        if menu_option == 4:
+            idle_msg_config = input("Setup idle message to display? [Y/N]: ").strip().upper()
+            if 'Y' in idle_msg_config:
+                is_idle_mode_updated = set_idle_message()
+
+        if is_idle_mode_updated:
+            print("System idle mode configuration is updated")
+
+
+def check_module_buzzer():
+    device_handle = open_display_module()
+    if device_handle is not None:
+        device_handle.bell()
+    device_handle.close_device()
+
+
+# Script entry point.
+user_selection = 0
+
+if (sys.platform.startswith('linux')) or (sys.platform.startswith('cygwin')):
+    DEFAULT_COM_PORT = "/dev/ttyACM0"
+elif sys.platform.startswith('darwin'):
+    DEFAULT_COM_PORT = "/dev/tty.usbserial1"
+elif sys.platform.startswith('win'):
+    DEFAULT_COM_PORT = "COM3"
+
+user_com_port = DEFAULT_COM_PORT
+
+while user_selection == 0:
+    print()
+    user_selection = show_main_menu()
+    print()
+
+    if user_selection == 9:
+        break
+
+    if user_selection == 1:
+        user_com_port = config_port()
+    elif user_selection == 2:
+        test_display_unit()
+    elif user_selection == 3:
+        change_time()
+    elif user_selection == 4:
+        change_date()
+    elif user_selection == 5:
+        sync_system_time()
+    elif user_selection == 6:
+        set_idle_mode()
+    elif user_selection == 7:
+        set_idle_message()
+    elif user_selection == 8:
+        check_module_buzzer()
+
+    user_selection = 0
+    print()
