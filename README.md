@@ -12,3 +12,6 @@ must be in "*API mode*".
 This package also has a configuration utility which is useful to 
 configure some parameters of the display unit such as idle mode message, 
 system time, etc.
+
+The complete documentation of this API is available at 
+[GitHub Wiki](https://github.com/dilshan/usb-external-display-python/wiki).
